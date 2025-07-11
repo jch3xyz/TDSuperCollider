@@ -1,0 +1,29 @@
+(
+// ---------- MASTER STARTUP SCRIPT ----------
+
+"Running TDSuperCollider.scd...".postln;
+
+// Pre-boot setup
+"Loading init_pre-boot.scd...".postln;
+this.executeFile("supercollider/scripts/init_pre-boot.scd");
+
+// Boot the server
+s.waitForBoot({
+    // Load SynthDefs and OSCDefs
+    "Booted. Loading synthdefs...".postln;
+    PathName("supercollider/synthdefs").entries.do { |file|
+        if(file.extension == "scd") {
+            file.fullPath.postln;
+            this.executeFile(file.fullPath);
+        };
+    };
+
+    // Post-boot setup
+    "Loading init_post-boot.scd...".postln;
+    this.executeFile("supercollider/scripts/init_post-boot.scd");
+
+    // Send langPort back to TouchDesigner
+    ~td = NetAddr("127.0.0.1", 8000);
+    ~td.sendMsg("/sc/port", NetAddr.langPort);
+});
+)
