@@ -35,7 +35,7 @@ class extSuperCollider:
 		]
 		# Uncomment the line below to store StoredProperty. To clear stored
 		# 	items, use the Storage section of the Component Editor
-		
+
 		# self.stored = StorageManager(self, ownerComp, storedItems)
 
 	def myFunction(self, v):
@@ -43,3 +43,6 @@ class extSuperCollider:
 
 	def PromotedFunction(self, v):
 		debug(v)
+
+	def StartSuperCollider(self):
+		pass
