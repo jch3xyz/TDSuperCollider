@@ -1,5 +1,6 @@
 // simpleSine.scd
 
+// 1) SynthDef unchanged
 SynthDef(\simpleSine, { |out=0, freq=440, lpFreq=8000, vol=0.5, gate=1|
     var sig, env;
     sig = SinOsc.ar(freq);
@@ -8,51 +9,87 @@ SynthDef(\simpleSine, { |out=0, freq=440, lpFreq=8000, vol=0.5, gate=1|
     Out.ar(out, sig * env * vol);
 }).add;
 
-// Paired OSCdef
+// 2) Global storage for instances
 ~synths = ~synths ?? { IdentityDictionary.new };
 
-OSCdef(\sineRouter, { |msg, time, addr, recvPort|
+// 3) Single OSCdef for all synths
+OSCdef(\synthRouter, { |msg, time, addr|
+    // declare all locals up front
+    var synthType, action, id, synth, freq, cutoff, volume, param, value;
 
-    var cmd, id, synth, i;
+    // parse incoming
+    synthType = msg[1].asString;        // e.g. "simpleSine"
+    action    = msg[2].asString;        // "play" / "update" / "kill"
 
-    cmd = msg[1];
+	msg.postln;
 
-    switch(cmd,
+	// ignore other synths
+   if (synthType == "simpleSine", {
 
-        // -------- play --------
-        'play', {
-            synth = Synth(\simpleSine, [
-                \freq,   msg[2],
-                \lpFreq, msg[3],
-                \vol,    msg[4]
-            ]);
-            ~synths[synth.nodeID] = synth;
-            addr.sendMsg('/sine/played', synth.nodeID, msg[2], msg[3], msg[4]);
-        },
+		//("got type: " ++ synthType).postln;
 
-        // -------- set ---------
-        'set', {
-            id    = msg[2];
-            synth = ~synths[id];
-            i     = 3;
-            if(synth.notNil) {
-                while { i < msg.size } {
-                    synth.set(msg[i], msg[i+1]);
-                    i = i + 2;
-                };
-                addr.sendMsg('/sine/updated', id);
-            };
-        },
+		switch(action,
 
-        // -------- kill --------
-        'kill', {
-            id    = msg[2];
-            synth = ~synths.removeAt(id);
-            if(synth.notNil) {
-                synth.set(\gate, 0);
-                synth.free;
-                addr.sendMsg('/sine/killed', id);
-            };
-        }
-    );
-}, '/sine');
+			// ——— play → create instance
+			"play", {
+				freq   = msg[3];
+				cutoff = msg[4];
+				volume = msg[5];
+
+				synth = Synth(\simpleSine, [
+					\freq,   freq,
+					\lpFreq, cutoff,
+					\vol,    volume
+				]);
+
+				~synths[synth.nodeID] = synth;
+
+				// notify TD: [ type, id, event, param/value… ]
+				~td.sendMsg(
+					"/synth",
+					 \simpleSine,
+						synth.nodeID,
+						\created,
+						\freq,   freq,
+						\lpFreq, cutoff,
+						\vol,    volume
+				);
+			},
+
+			// ——— update → change params
+			"update", {
+				id    = msg[3];
+				param = msg[4];
+				value = msg[5];
+
+				synth = ~synths[id];
+				if(synth.notNil) {
+					synth.set(param.asSymbol, value);
+					~td.sendMsg(
+						"/synth",
+						 \simpleSine,
+							id,
+							\updated,
+							param, value
+					);
+				};
+			},
+
+			// ——— kill → free instance
+			"kill", {
+				id    = msg[3];
+				synth = ~synths.removeAt(id);
+				if(synth.notNil) {
+					synth.free;
+					~td.sendMsg(
+						"/synth",
+						\simpleSine,
+							id,
+							\killed
+					);
+				};
+			}
+
+		);
+	});
+}, "/synth");

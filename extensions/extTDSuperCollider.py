@@ -1,4 +1,4 @@
-from TDStoreTools import StorageManager
+﻿from TDStoreTools import StorageManager
 import TDFunctions as TDF
 import platform, subprocess, os, threading
 
@@ -15,8 +15,11 @@ class extTDSuperCollider:
 
 	def __init__(self, ownerComp):
 		self.ownerComp = ownerComp
+
 		self.proc = None
 		self.server_pid = None
+
+		self.table = self.ownerComp.op('synthTable')
 
 		# sclang path
 		# Check for custom sclang path parameter
@@ -87,3 +90,79 @@ class extTDSuperCollider:
 		# Set the OSC out DAT port for language feedback
 		self.ownerComp.op('oscout1').par.port = langPort
 		print('langPort:', langPort)
+
+	def ParseSynthMessage(self, row):
+		"""
+		row: e.g.
+		['simpleSine', 'created', 'freq', '440', 'lpFreq', '8000', 'vol', '0.5']
+		['simpleSine', 'updated', '1001', 'lpFreq', '1200']
+		['simpleSine', 'killed', '1001']
+		"""
+		table = self.table
+
+		# unpack common fields
+		sType = row[0]
+		evt   = row[1]
+		sID   = int(row[2]) if evt in ('updated', 'killed') else None
+
+		# decide where params start
+		if evt == 'created':
+			args = row[2:]
+		else:
+			args = row[3:]
+
+		# helper: add column if missing
+		def ensureCol(name):
+			hdrs = table.row(0)
+			if name not in hdrs:
+				col = table.numCols
+				table[0, col] = name
+				for r in range(1, table.numRows):
+					table[r, col] = ''
+
+		# CREATED: build headers + new row
+		if evt == 'created':
+			# make sure id, type, status exist
+			ensureCol('id')
+			ensureCol('type')
+			ensureCol('status')
+			# for each param name
+			for i in range(0, len(args), 2):
+				ensureCol(args[i])
+
+			# map param→value
+			values = { args[i]: args[i+1] for i in range(0, len(args), 2) }
+
+			# assemble row in header order
+			rowData = []
+			for h in table.row(0):
+				if h == 'id':
+					rowData.append(synthID)  # no sID yet: use newly assigned nodeID?
+				elif h == 'type':
+					rowData.append(sType)
+				elif h == 'status':
+					rowData.append('playing')
+				else:
+					rowData.append(values.get(h, ''))
+			table.appendRow(rowData)
+
+		# UPDATED: set single param
+		elif evt == 'updated':
+			param = args[0]
+			value = args[1]
+			ensureCol(param)
+			# find the row for this ID
+			for r in range(1, table.numRows):
+				if int(table[r, table.row(0).index('id')]) == sID:
+					c = table.row(0).index(param)
+					table[r, c] = value
+					break
+
+		# KILLED: mark status
+		elif evt == 'killed':
+			ensureCol('status')
+			for r in range(1, table.numRows):
+				if int(table[r, table.row(0).index('id')]) == sID:
+					c = table.row(0).index('status')
+					table[r, c] = 'killed'
+					break

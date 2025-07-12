@@ -29,3 +29,8 @@ s.waitForBoot({
     ~td.sendMsg("/sc/port", NetAddr.langPort);
 });
 )
+
+//OSCFunc.trace(false)
+
+//NetAddr.langPort
+
