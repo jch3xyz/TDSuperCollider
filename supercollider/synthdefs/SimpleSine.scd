@@ -83,10 +83,10 @@ OSCdef.new(
             // UPDATE: set params on an existing node
             "update", {
                 nodeID = kv.at("id");
-                node   = Node(nodeID);
                 kv.keys.do({ |k|
                     if(k != "id") {
-                        node.set(k.asSymbol, kv[k]);
+                        // this sends directly on the default server
+						s.sendMsg("/n_set", nodeID, k.asSymbol, kv[k]);
                     };
                 });
                 // acknowledge update
