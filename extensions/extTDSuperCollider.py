@@ -9,7 +9,7 @@ class extTDSuperCollider:
 	"""
 	# Default OS-based paths to sclang
 	BINARY_MAP = {
-		"Windows": r"C:\\Program Files\\SuperCollider\\sclang.exe",
+		"Windows": r"C:\Program Files\SuperCollider-3.13.0\sclang.exe",
 		"Darwin":  "/Applications/SuperCollider.app/Contents/MacOS/sclang"
 	}
 
