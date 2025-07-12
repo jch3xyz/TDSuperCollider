@@ -1,6 +1,7 @@
 ﻿from TDStoreTools import StorageManager
 import TDFunctions as TDF
-import platform, subprocess, os, threading
+import platform, subprocess, os, threading, re, signal, tempfile
+from pathlib import Path
 
 class extTDSuperCollider:
 	"""
@@ -9,7 +10,7 @@ class extTDSuperCollider:
 	"""
 	# Default OS-based paths to sclang
 	BINARY_MAP = {
-		"Windows": r"C:\Program Files\SuperCollider-3.13.0\sclang.exe",
+		"Windows": r"C:\\Program Files\\SuperCollider-3.13.0\\sclang.exe",
 		"Darwin":  "/Applications/SuperCollider.app/Contents/MacOS/sclang"
 	}
 
@@ -32,48 +33,64 @@ class extTDSuperCollider:
 				raise RuntimeError(f"Unsupported OS: {os_name}")
 			self.sclang_path = self.BINARY_MAP[os_name]
 
-
 	def StartSuperCollider(self):
 		"""
-		Launches the SuperCollider file at:
-		<project_folder>/supercollider/TDSuperCollider.scd
+		Launch TDSuperCollider.scd from <project_folder>/supercollider/
+		Prepends sclang folder to PATH on Windows so scsynth is found.
 		"""
-		scd_file = os.path.join(project.folder, 'supercollider', 'TDSuperCollider.scd')
+		base_folder = os.path.join(project.folder, 'supercollider')
+		scd_file = os.path.join(base_folder, 'TDSuperCollider.scd')
 		if not os.path.isfile(scd_file):
-			raise FileNotFoundError(f"SuperCollider script not found: {scd_file}")
+			raise FileNotFoundError(f"Script not found: {scd_file}")
 
-		# Launch sclang with the SC file
+		# Build environment with scsynth on PATH for Windows
+		env = os.environ.copy()
+		if platform.system() == 'Windows':
+			sc_dir = os.path.dirname(self.sclang_path)
+			env['PATH'] = sc_dir + os.pathsep + env.get('PATH', '')
+
+		# Stop existing instance
+		if self.proc and self.proc.poll() is None:
+			self.StopSuperCollider()
+
+		# Launch script with correct cwd
 		proc = subprocess.Popen(
 			[self.sclang_path, scd_file],
+			cwd=base_folder,
+			env=env,
 			stdout=subprocess.PIPE,
 			stderr=subprocess.STDOUT,
 			text=True
 		)
+		self.proc = proc
 
-		# Stream console output back to TouchDesigner Textport
+		# Stream output and capture server PID
 		def _stream():
 			for line in proc.stdout:
 				print('SuperCollider:', line.rstrip())
+				m = re.search(r'pid:\s*(\d+)', line)
+				if m:
+					try:
+						self.server_pid = int(m.group(1))
+						print(f'sc server PID: {self.server_pid}')
+					except ValueError:
+						pass
 		threading.Thread(target=_stream, daemon=True).start()
-
-		# Store process handle for later control if needed
-		self.proc = proc
 		return proc
 
 	def StopSuperCollider(self):
 		"""
-		Stops the sclang process and the scsynth server if running.
+		Terminate sclang and scsynth processes.
 		"""
-		# kill sclang
-		if self.proc and self.proc.poll() is None:
-			try:
-				self.proc.terminate()
-				print('Terminated sclang PID:', self.proc.pid)
-			except Exception as e:
-				print('Error terminating sclang:', e)
-		self.proc = None
+		if self.proc:
+			if self.proc.poll() is None:
+				try:
+					self.proc.terminate()
+					print('Terminated sclang PID:', self.proc.pid)
+				except Exception as e:
+					print('Error terminating sclang:', e)
+			self.proc = None
 
-		# kill scsynth server
 		if self.server_pid:
 			try:
 				if platform.system() == 'Windows':
@@ -83,7 +100,7 @@ class extTDSuperCollider:
 				print('Terminated scsynth PID:', self.server_pid)
 			except Exception as e:
 				print('Error terminating server:', e)
-		self.server_pid = None
+			self.server_pid = None
 		return
 
 	def SetLangPort(self, langPort):
