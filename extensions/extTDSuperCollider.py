@@ -1,7 +1,6 @@
 ﻿from TDStoreTools import StorageManager
 import TDFunctions as TDF
-import platform, subprocess, os, threading, re, signal, tempfile
-from pathlib import Path
+import platform, subprocess, os, threading, re, signal, webbrowser
 
 class extTDSuperCollider:
 	"""
@@ -32,6 +31,10 @@ class extTDSuperCollider:
 			if os_name not in self.BINARY_MAP:
 				raise RuntimeError(f"Unsupported OS: {os_name}")
 			self.sclang_path = self.BINARY_MAP[os_name]
+	
+	def DownloadSuperCollider(self):
+		webbrowser.open('https://supercollider.github.io/')
+		return
 
 	def StartSuperCollider(self):
 		"""
@@ -110,76 +113,83 @@ class extTDSuperCollider:
 
 	def ParseSynthMessage(self, row):
 		"""
-		row: e.g.
-		['simpleSine', 'created', 'freq', '440', 'lpFreq', '8000', 'vol', '0.5']
-		['simpleSine', 'updated', '1001', 'lpFreq', '1200']
-		['simpleSine', 'killed', '1001']
+		row format:
+		[sType (str), sID (int), event (str), [paramName, paramValue, ...]]
+		Examples:
+		['simpleSine', 1001, 'created', 'freq', 330, 'lpFreq', 5000, 'vol', 0.5]
+		['simpleSine', 1001, 'updated', 'lpFreq', 1200]
+		['simpleSine', 1001, 'killed']
 		"""
 		table = self.table
 
-		# unpack common fields
-		sType = row[0]
-		evt   = row[1]
-		sID   = int(row[2]) if evt in ('updated', 'killed') else None
+		 # 1) Unwrap any incoming td.Cell → plain Python
+		clean = []
+		for v in row:
+			if hasattr(v, 'val'):
+				clean.append(v.val)
+			else:
+				clean.append(v)
+		sType, sID, evt, *params = clean
+		sID = int(sID)
 
-		# decide where params start
-		if evt == 'created':
-			args = row[2:]
-		else:
-			args = row[3:]
+		print(f"ParseSynthMessage received: {row}")
+		print(f"Type: {sType}, ID: {sID}, Event: {evt}, Params: {params}")
 
-		# helper: add column if missing
+		 # Helpers to get header names and add a column
+		def header_vals():
+			return [c.val for c in table.row(0)]
+
 		def ensureCol(name):
-			hdrs = table.row(0)
-			if name not in hdrs:
-				col = table.numCols
-				table[0, col] = name
-				for r in range(1, table.numRows):
-					table[r, col] = ''
+			h = header_vals()
+			if name not in h:
+				# build a full column list: header + blanks
+				col = [name] + [''] * (table.numRows - 1)
+				table.appendCol(col)
 
-		# CREATED: build headers + new row
+		# CREATE: add any missing cols, then append a new row
 		if evt == 'created':
-			# make sure id, type, status exist
-			ensureCol('id')
-			ensureCol('type')
-			ensureCol('status')
-			# for each param name
-			for i in range(0, len(args), 2):
-				ensureCol(args[i])
-
-			# map param→value
-			values = { args[i]: args[i+1] for i in range(0, len(args), 2) }
-
-			# assemble row in header order
-			rowData = []
-			for h in table.row(0):
+			# always have these three
+			for col in ('id', 'type', 'status'):
+				ensureCol(col)
+			# ensure each param name exists
+			for i in range(0, len(params), 2):
+				ensureCol(str(params[i]))
+			# build a map of name→value
+			vals = { str(params[i]) : params[i+1] for i in range(0, len(params), 2) }
+			# assemble in header order
+			newRow = []
+			for h in header_vals():
 				if h == 'id':
-					rowData.append(synthID)  # no sID yet: use newly assigned nodeID?
+					newRow.append(sID)
 				elif h == 'type':
-					rowData.append(sType)
+					newRow.append(sType)
 				elif h == 'status':
-					rowData.append('playing')
+					newRow.append('playing')
 				else:
-					rowData.append(values.get(h, ''))
-			table.appendRow(rowData)
+					newRow.append(vals.get(h, ''))
+			table.appendRow(newRow)
 
-		# UPDATED: set single param
-		elif evt == 'updated':
-			param = args[0]
-			value = args[1]
-			ensureCol(param)
-			# find the row for this ID
-			for r in range(1, table.numRows):
-				if int(table[r, table.row(0).index('id')]) == sID:
-					c = table.row(0).index(param)
-					table[r, c] = value
+		# UPDATE: find the row for this sID and set one cell
+		elif evt == 'updated' and len(params) >= 2:
+			name, val = str(params[0]), params[1]
+			ensureCol(name)
+			h = header_vals()
+			id_idx    = h.index('id')
+			name_idx  = h.index(name)
+			# iterate the existing rows (skipping header row)
+			for rowCells in table.rows()[1:]:
+				if int(rowCells[id_idx].val) == sID:
+					rowCells[name_idx].val = val
 					break
 
-		# KILLED: mark status
+		# KILL: mark status="killed" on the matching row
 		elif evt == 'killed':
 			ensureCol('status')
-			for r in range(1, table.numRows):
-				if int(table[r, table.row(0).index('id')]) == sID:
-					c = table.row(0).index('status')
-					table[r, c] = 'killed'
+			h = header_vals()
+			id_idx     = h.index('id')
+			status_idx = h.index('status')
+			for rowCells in table.rows()[1:]:
+				if int(rowCells[id_idx].val) == sID:
+					rowCells[status_idx].val = 'killed'
 					break
+
