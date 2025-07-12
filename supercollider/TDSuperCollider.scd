@@ -5,6 +5,9 @@
 
 ~basePath = thisProcess.nowExecutingPath.dirname;
 
+// define TD reply address *first*
+~td = NetAddr("127.0.0.1", 8000);
+
 // Pre-boot setup
 "Loading init_pre-boot.scd...".postln;
 this.executeFile(~basePath +/+ "scripts/init_pre-boot.scd");
@@ -25,7 +28,6 @@ s.waitForBoot({
     //this.executeFile(~basePath +/+ "scripts/init_post-boot.scd");
 
     // Send langPort back to TouchDesigner
-    ~td = NetAddr("127.0.0.1", 8000);
     ~td.sendMsg("/sc/port", NetAddr.langPort);
 });
 )
