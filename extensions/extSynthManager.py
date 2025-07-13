@@ -16,11 +16,15 @@ class extSynthManager:
 	"""
 	def __init__(self, ownerComp):
 		self.ownerComp = ownerComp
+
 		self.table     = ownerComp.op('synthTable')   # DAT tracking one row per voice
 		self.oscOut    = ownerComp.op('oscout1')      # OSC Out DAT
 		# Initialize table header if it's empty
 		if self.table.numRows == 0:
 			self.table.appendRow(['name', 'id', 'type', 'status'])
+
+		self.synthDefsTable = self.ownerComp.op('synthDefs')
+		self._tableCleared = False
 
 	# ————————————————
 	# Public API
@@ -180,3 +184,21 @@ class extSynthManager:
 		"""Adds a new column 'name' with blank cells."""
 		blanks = [''] * (self.table.numRows - 1)
 		self.table.appendCol([name] + blanks)
+
+	def AddSynthDef(self, row):
+		"""
+		row: list of DAT Cell objects from OSC In DAT
+		row[0].val == synthName
+		row[1].val == comma-separated control names
+		"""
+
+		# clear the entire table exactly once
+		if not self._tableCleared:
+			self.synthDefsTable.clear()      # removes all rows & columns
+			self._tableCleared = True
+
+		name   = row[0]
+		params = row[1].split(',')
+
+		# append as a brand-new row
+		self.synthDefsTable.appendRow([name] + params)
