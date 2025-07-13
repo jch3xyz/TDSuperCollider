@@ -12,6 +12,9 @@
 "Loading init_pre-boot.scd...".postln;
 this.executeFile(~basePath +/+ "scripts/init_pre-boot.scd");
 
+//Install Quarks
+this.executeFile(~basePath +/+ "scripts/install-quarks.scd");
+
 // Boot the server
 s.waitForBoot({
 
