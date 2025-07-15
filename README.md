@@ -1,2 +1,2 @@
-# supercollider-touchdesigner
+# TDSuperCollider
 
