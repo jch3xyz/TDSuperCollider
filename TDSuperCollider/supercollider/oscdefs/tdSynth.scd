@@ -43,6 +43,7 @@ OSCdef.new(
 				).flat;
 
                 freqs.do({ |f|
+					var thisNode;
                     // build SC args (\freq, f plus extras)
                     args = [ \freq, f ];
                     kv.keys.do({ |k|
@@ -55,23 +56,23 @@ OSCdef.new(
                     });
 
                     // spawn synth (SC assigns nodeID)
-                    node = Synth(synthType, args);
-
+                    thisNode = Synth(synthType, args);
+					thisNode.nodeID.postln;
 
 					// then register an onFree handler
-					node.onFree({
-						("free: " + node.nodeID).postln;
+					thisNode.onFree({
+						("free: " + thisNode.nodeID).postln;
 						// fire the exact same OSC you’d get from your manual /synth "kill"
 						~td.sendMsg('/synth',
 							synthType.asString,
-							node.nodeID,
+							thisNode.nodeID,
 							"killed")
 					});
 
                     // reply with "created"
                     resp = [
                         synthType.asString,
-                        node.nodeID,
+                        thisNode.nodeID,
                         "created",
                         "name", name,
                         "freq", f
