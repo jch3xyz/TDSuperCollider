@@ -57,6 +57,17 @@ OSCdef.new(
                     // spawn synth (SC assigns nodeID)
                     node = Synth(synthType, args);
 
+
+					// then register an onFree handler
+					node.onFree({
+						("free: " + node.nodeID).postln;
+						// fire the exact same OSC you’d get from your manual /synth "kill"
+						~td.sendMsg('/synth',
+							synthType.asString,
+							node.nodeID,
+							"killed")
+					});
+
                     // reply with "created"
                     resp = [
                         synthType.asString,
