@@ -82,8 +82,8 @@ class extTDSuperCollider:
 		Terminate sclang and scsynth processes.
 		"""
 		if self.proc:
-			print('self.proc:', self.proc)
-			print('self.proc.poll():', self.proc.poll())
+			#print('self.proc:', self.proc)
+			#print('self.proc.poll():', self.proc.poll())
 			if self.proc.poll() is None:
 				try:
 					self.proc.terminate()
