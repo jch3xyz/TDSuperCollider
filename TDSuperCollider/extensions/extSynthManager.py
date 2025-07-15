@@ -192,13 +192,11 @@ class extSynthManager:
 		row[1].val == comma-separated control names
 		"""
 
-		# clear the entire table exactly once
-		if not self._tableCleared:
-			self.synthDefsTable.clear()      # removes all rows & columns
-			self._tableCleared = True
-
 		name   = row[0]
 		params = row[1].split(',')
 
 		# append as a brand-new row
 		self.synthDefsTable.appendRow([name] + params)
+
+	def ClearSynthDefs(self):
+		self.synthDefsTable.clear()

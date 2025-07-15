@@ -33,6 +33,8 @@ class extTDSuperCollider:
 		Launch TDSuperCollider.scd from <project_folder>/supercollider/
 		Prepends sclang folder to PATH on Windows so scsynth is found.
 		"""
+		parent.TDSuperCollider.ClearSynthDefs()
+
 		base_folder = os.path.join(project.folder, 'TDSuperCollider/supercollider')
 		scd_file = os.path.join(base_folder, 'TDSuperCollider.scd')
 		if not os.path.isfile(scd_file):

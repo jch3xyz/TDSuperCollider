@@ -5,7 +5,7 @@ OSCdef.new(
     { |msg, time, addr|           // callback
         // — declare all vars up front —
         var synthType, action, data, kv;
-        var name, freqs, args, node, nodeID, resp, key, i;
+        var name, freqs, args, node, nodeID, resp, key, i, raw, evaluated, rawFreq;
 
         // parse header
         synthType = msg[1].asSymbol;
@@ -28,17 +28,28 @@ OSCdef.new(
             // PLAY: spawn one Synth per freq
             "play", {
                 name = kv.at("name");
-                freqs = if(kv.at("freq").notNil,
-                    { [ kv.at("freq") ].flat },
-                    { [ nil ] }
-                );
+                rawFreq = kv.at("freq");
+				freqs = if(
+					rawFreq.notNil,
+					{
+						[ rawFreq ].flat.collect { |raw|
+							raw.isKindOf(Symbol)
+							.if({ raw.asString.interpret },  // evaluate any string
+								{ raw })             // otherwise leave it as-is
+						}
+					},
+					{ [ nil ] }
+				).flat;
 
                 freqs.do({ |f|
                     // build SC args (\freq, f plus extras)
                     args = [ \freq, f ];
                     kv.keys.do({ |k|
                         if(k != "name" and: { k != "freq" }) {
-                            args = args ++ [ k.asSymbol, kv[k] ];
+							raw = kv[k];
+							// if the value is a String, interpret as SC code, otherwise use raw value
+							evaluated = raw.isKindOf(Symbol).if({ raw.asString.interpret }, { raw });
+                            args = args ++ [ k.asSymbol, evaluated ].flat;
                         };
                     });
 
@@ -55,7 +66,12 @@ OSCdef.new(
                     ];
                     kv.keys.do({ |k|
                         if(k != "name" and: { k != "freq" }) {
-                            resp = resp ++ [ k, kv[k] ];
+							raw = kv[k];
+							// if the value is a String, interpret as SC code, otherwise use raw value
+							evaluated = raw.isKindOf(Symbol).if({ raw.asString.interpret }, { raw });
+							//raw.postln;
+							//evaluated.postln;
+                            resp = resp ++ [ k, evaluated ];
                         };
                     });
                     ~td.sendMsg("/synth", *resp);
@@ -67,15 +83,21 @@ OSCdef.new(
                 nodeID = kv.at("id");
                 kv.keys.do({ |k|
                     if(k != "id") {
+						raw = kv[k];
+						// if the value is a String, interpret as SC code, otherwise use raw value
+						evaluated = raw.isKindOf(Symbol).if({ raw.asString.interpret }, { raw });
                         // this sends directly on the default server
-						s.sendMsg("/n_set", nodeID, k.asSymbol, kv[k]);
+						s.sendMsg("/n_set", nodeID, k.asSymbol, evaluated);
                     };
                 });
                 // acknowledge update
                 resp = [ synthType.asString, nodeID, "updated" ];
                 kv.keys.do({ |k|
                     if(k != "id") {
-                        resp = resp ++ [ k, kv[k] ];
+						raw = kv[k];
+						// if the value is a String, interpret as SC code, otherwise use raw value
+						evaluated = raw.isKindOf(Symbol).if({ raw.asString.interpret }, { raw });
+                        resp = resp ++ [ k, evaluated ];
                     };
                 });
                 ~td.sendMsg("/synth", *resp);
@@ -97,3 +119,4 @@ OSCdef.new(
     },
     "/synth"                       // OSC address to listen on
 );
+
