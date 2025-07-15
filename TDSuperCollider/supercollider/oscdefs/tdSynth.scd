@@ -33,9 +33,10 @@ OSCdef.new(
 					rawFreq.notNil,
 					{
 						[ rawFreq ].flat.collect { |raw|
-							raw.isKindOf(Symbol)
-							.if({ raw.asString.interpret },  // evaluate any string
-								{ raw })             // otherwise leave it as-is
+							raw.isKindOf(Symbol).if(
+								{ raw.asString.interpret },  // evaluate any string
+								{ raw }
+							)             // otherwise leave it as-is
 						}
 					},
 					{ [ nil ] }
@@ -69,8 +70,6 @@ OSCdef.new(
 							raw = kv[k];
 							// if the value is a String, interpret as SC code, otherwise use raw value
 							evaluated = raw.isKindOf(Symbol).if({ raw.asString.interpret }, { raw });
-							//raw.postln;
-							//evaluated.postln;
                             resp = resp ++ [ k, evaluated ];
                         };
                     });
