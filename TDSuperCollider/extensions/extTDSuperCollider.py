@@ -1,4 +1,4 @@
-﻿from TDStoreTools import StorageManager
+from TDStoreTools import StorageManager
 import TDFunctions as TDF
 import platform, subprocess, os, threading, re, signal, webbrowser
 
@@ -33,7 +33,7 @@ class extTDSuperCollider:
 		Launch TDSuperCollider.scd from <project_folder>/supercollider/
 		Prepends sclang folder to PATH on Windows so scsynth is found.
 		"""
-		base_folder = os.path.join(project.folder, 'supercollider')
+		base_folder = os.path.join(project.folder, 'TDSuperCollider/supercollider')
 		scd_file = os.path.join(base_folder, 'TDSuperCollider.scd')
 		if not os.path.isfile(scd_file):
 			raise FileNotFoundError(f"Script not found: {scd_file}")
@@ -102,10 +102,7 @@ class extTDSuperCollider:
 		# Set the OSC out DAT port for language feedback
 		self.ownerComp.op('oscout1').par.port = langPort
 		print('langPort:', langPort)
-	
+
 	def DownloadSuperCollider(self):
 		webbrowser.open('https://supercollider.github.io/')
 		return
-
-	
-
