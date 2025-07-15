@@ -65,6 +65,8 @@ class extTDSuperCollider:
 		def _stream():
 			for line in proc.stdout:
 				print('SuperCollider:', line.rstrip())
+				if 'pid' in line:
+					print('Line with pid detected:', line)
 				m = re.search(r'pid:\s*(\d+)', line)
 				if m:
 					try:
@@ -80,25 +82,36 @@ class extTDSuperCollider:
 		Terminate sclang and scsynth processes.
 		"""
 		if self.proc:
+			print('self.proc:', self.proc)
+			print('self.proc.poll():', self.proc.poll())
 			if self.proc.poll() is None:
 				try:
 					self.proc.terminate()
+					self.proc.wait(timeout=2)
 					print('Terminated sclang PID:', self.proc.pid)
+				except subprocess.TimeoutExpired:
+					print('Terminate timeout, using kill()')
+					self.proc.kill()
 				except Exception as e:
 					print('Error terminating sclang:', e)
 			self.proc = None
+		else:
+			print('No sclang proc to terminate')
 
 		if self.server_pid:
 			try:
 				if platform.system() == 'Windows':
-					subprocess.call(['taskkill', '/PID', str(self.server_pid), '/F'])
+					ret = subprocess.call(['taskkill', '/PID', str(self.server_pid), '/T', '/F'])
+					print('taskkill return code:', ret)
 				else:
 					os.kill(self.server_pid, signal.SIGTERM)
-				print('Terminated scsynth PID:', self.server_pid)
+					print('Terminated scsynth PID:', self.server_pid)
 			except Exception as e:
 				print('Error terminating server:', e)
 			self.server_pid = None
-		return
+		else:
+			print('No server_pid set')
+
 
 	def SetLangPort(self, langPort):
 		# Set the OSC out DAT port for language feedback

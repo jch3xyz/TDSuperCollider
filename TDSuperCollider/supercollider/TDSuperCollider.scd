@@ -46,9 +46,18 @@ s.waitForBoot({
    // "Loading init_post-boot.scd...".postln;
     //this.executeFile(~basePath +/+ "scripts/init_post-boot.scd");
 
+	// print pid for python to parse and store
+	SystemClock.sched(0.1, {
+		("pid: " ++ s.pid).postln;
+	});
+
     // Send langPort back to TouchDesigner
     ~td.sendMsg("/sc/port", NetAddr.langPort);
 	"Booted.".postln;
+
+	SystemClock.sched(0.2, {
+		"TDSuperCollider is ready to use!".postln;
+	});
 });
 )
 
