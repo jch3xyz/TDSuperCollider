@@ -1,10 +1,10 @@
 (
-var quarkURL = "https://github.com/triss/ChordSymbol.git";
+var quarkURL = "https://github.com/jch3xyz/ChordSymbol2.git";
 
 if (Quarks.isInstalled("ChordSymbol")) {
-    "ChordSymbol already installed".postln;
+    "ChordSymbol2 already installed".postln;
 } {
     Quarks.install(quarkURL);
-    "Installed ChordSymbol".postln;
+    "Installed ChordSymbol2".postln;
 }
 )
